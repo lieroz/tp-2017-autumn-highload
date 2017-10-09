@@ -17,15 +17,14 @@ type Server struct {
 }
 
 func NewServer(port, webRoot string) *Server {
-	pwd, _ := os.Getwd()
 	return &Server{
 		Port:    port,
-		WebRoot: pwd + webRoot,
+		WebRoot: webRoot,
 	}
 }
 
 func (s *Server) ListenAndServe() {
-	ln, err := net.Listen("tcp", s.Port)
+	ln, err := net.Listen("tcp", ":" + s.Port)
 	if err != nil {
 		log.Fatalln("server start error:", err)
 	}

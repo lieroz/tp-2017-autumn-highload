@@ -48,7 +48,7 @@ func (r *Response) writeFileInfo(f *os.File) *bytes.Buffer {
 	for _, line := range contentHeaders {
 		buf.WriteString(strings.Join(line, WordSeparator) + HttpSeparator)
 	}
-	buf.WriteString("\r\n")
+	buf.WriteString(HttpSeparator)
 	return buf
 }
 
