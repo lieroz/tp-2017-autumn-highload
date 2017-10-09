@@ -6,12 +6,18 @@ import (
 	"strconv"
 	"time"
 	"bytes"
+	"os"
+	"path/filepath"
+	"io"
 )
 
 const (
+	Base = 10
+
 	HttpVersion   = "HTTP/1.1"
-	HttpSeparator = "\r\n"
 	ServerName    = "tp-autumn-2017-highload"
+	HttpSeparator = "\r\n"
+	WordSeparator = " "
 )
 
 type Response struct {
@@ -19,7 +25,22 @@ type Response struct {
 	Description string
 }
 
-func (r *Response) Write(conn net.Conn) {
+func (r *Response) Write(conn net.Conn, f *os.File) {
+	fileInfo, _ := f.Stat()
+	var contentHeaders = [][]string{
+		{
+			"Content-Length:", strconv.FormatInt(fileInfo.Size(), Base),
+		}, {
+			"Content-Type:", GetContentType(filepath.Ext(fileInfo.Name())[1:]),
+		},
+	}
+	buf := bytes.NewBuffer(r.writeCommonHeaders())
+	for _, line := range contentHeaders {
+		buf.WriteString(strings.Join(line, WordSeparator) + HttpSeparator)
+	}
+	buf.WriteString("\r\n")
+	io.Copy(buf, f)
+	conn.Write(buf.Bytes())
 }
 
 func (r *Response) WriteCommonHeaders(conn net.Conn) {
@@ -29,7 +50,7 @@ func (r *Response) WriteCommonHeaders(conn net.Conn) {
 func (r *Response) writeCommonHeaders() []byte {
 	var commonHeaders = [][]string{
 		{
-			HttpVersion, strconv.FormatInt(int64(r.Code), 10), r.Description,
+			HttpVersion, strconv.FormatInt(int64(r.Code), Base), r.Description,
 		}, {
 			"Date:", time.Now().String(),
 		}, {
@@ -38,11 +59,11 @@ func (r *Response) writeCommonHeaders() []byte {
 			"Connection: Close",
 		},
 	}
-	buffer := bytes.NewBuffer(nil)
+	buf := bytes.NewBuffer(nil)
 	for _, line := range commonHeaders {
-		buffer.WriteString(strings.Join(line, " ") + HttpSeparator)
+		buf.WriteString(strings.Join(line, WordSeparator) + HttpSeparator)
 	}
-	return buffer.Bytes()
+	return buf.Bytes()
 }
 
 func (r *Response) BuildErrResp(err error) {

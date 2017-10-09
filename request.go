@@ -3,9 +3,9 @@ package main
 import (
 	"net"
 	tp "net/textproto"
-	"bufio"
 	"strings"
 	"log"
+	"bufio"
 )
 
 type Request struct {
@@ -26,7 +26,11 @@ func (r *Request) Parse(conn net.Conn) error {
 		return ErrBadRequest
 	}
 	r.Method = reqParams[0]
-	r.AbsPath = reqParams[1]
+	if strings.Contains(reqParams[1], "?") {
+		r.AbsPath = reqParams[1][:strings.Index(reqParams[1], "?")]
+	} else {
+		r.AbsPath = reqParams[1]
+	}
 	return nil
 }
 

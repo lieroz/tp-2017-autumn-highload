@@ -3,6 +3,8 @@ package main
 import (
 	"net"
 	"log"
+	"os"
+	"strings"
 )
 
 type Server struct {
@@ -11,9 +13,10 @@ type Server struct {
 }
 
 func NewServer(port, webRoot string) *Server {
+	pwd, _ := os.Getwd()
 	return &Server{
 		Port:    port,
-		WebRoot: webRoot,
+		WebRoot: pwd + webRoot,
 	}
 }
 
@@ -44,5 +47,13 @@ func (s *Server) serve(conn net.Conn) {
 		resp.WriteCommonHeaders(conn)
 		return
 	}
-	resp.WriteCommonHeaders(conn)
+	if strings.HasSuffix(req.AbsPath, "/") {
+		req.AbsPath += "index.html"
+	}
+	f, err := os.Open(s.WebRoot + req.AbsPath)
+	defer f.Close()
+	if err != nil {
+		return
+	}
+	resp.Write(conn, f)
 }
