@@ -6,6 +6,7 @@ import (
 	"strings"
 	"log"
 	"bufio"
+	"net/url"
 )
 
 type Request struct {
@@ -30,6 +31,9 @@ func (r *Request) Parse(conn net.Conn) error {
 		r.AbsPath = reqParams[1][:strings.Index(reqParams[1], "?")]
 	} else {
 		r.AbsPath = reqParams[1]
+	}
+	if r.AbsPath, err = url.QueryUnescape(r.AbsPath); err != nil {
+		log.Fatalln("error decoding query:", err)
 	}
 	return nil
 }

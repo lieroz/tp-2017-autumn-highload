@@ -25,7 +25,17 @@ type Response struct {
 	Description string
 }
 
+func (r *Response) WriteBody(conn net.Conn, f *os.File) {
+	buf := r.writeFileInfo(f)
+	io.Copy(buf, f)
+	conn.Write(buf.Bytes())
+}
+
 func (r *Response) Write(conn net.Conn, f *os.File) {
+	conn.Write(r.writeFileInfo(f).Bytes())
+}
+
+func (r *Response) writeFileInfo(f *os.File) *bytes.Buffer {
 	fileInfo, _ := f.Stat()
 	var contentHeaders = [][]string{
 		{
@@ -34,20 +44,19 @@ func (r *Response) Write(conn net.Conn, f *os.File) {
 			"Content-Type:", GetContentType(filepath.Ext(fileInfo.Name())[1:]),
 		},
 	}
-	buf := bytes.NewBuffer(r.writeCommonHeaders())
+	buf := bytes.NewBuffer(r.writeCommonHeaders().Bytes())
 	for _, line := range contentHeaders {
 		buf.WriteString(strings.Join(line, WordSeparator) + HttpSeparator)
 	}
 	buf.WriteString("\r\n")
-	io.Copy(buf, f)
-	conn.Write(buf.Bytes())
+	return buf
 }
 
 func (r *Response) WriteCommonHeaders(conn net.Conn) {
-	conn.Write(r.writeCommonHeaders())
+	conn.Write(r.writeCommonHeaders().Bytes())
 }
 
-func (r *Response) writeCommonHeaders() []byte {
+func (r *Response) writeCommonHeaders() *bytes.Buffer {
 	var commonHeaders = [][]string{
 		{
 			HttpVersion, strconv.FormatInt(int64(r.Code), Base), r.Description,
@@ -63,7 +72,7 @@ func (r *Response) writeCommonHeaders() []byte {
 	for _, line := range commonHeaders {
 		buf.WriteString(strings.Join(line, WordSeparator) + HttpSeparator)
 	}
-	return buf.Bytes()
+	return buf
 }
 
 func (r *Response) BuildErrResp(err error) {
