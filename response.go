@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"io"
+	"sync"
 )
 
 const (
@@ -20,19 +21,35 @@ const (
 	WordSeparator = " "
 )
 
+var writerPool = sync.Pool{
+	New: func() interface{} {
+		return bytes.NewBuffer(nil)
+	},
+}
+
 type Response struct {
 	Code        int
 	Description string
+}
+
+func (r *Response) Reset() {
+	r.Code = StatusOk
+	r.Description = "OK"
 }
 
 func (r *Response) WriteBody(conn net.Conn, f *os.File) {
 	buf := r.writeFileInfo(f)
 	io.Copy(buf, f)
 	conn.Write(buf.Bytes())
+	buf.Reset()
+	writerPool.Put(buf)
 }
 
 func (r *Response) Write(conn net.Conn, f *os.File) {
-	conn.Write(r.writeFileInfo(f).Bytes())
+	buf := r.writeFileInfo(f)
+	conn.Write(buf.Bytes())
+	buf.Reset()
+	writerPool.Put(buf)
 }
 
 func (r *Response) writeFileInfo(f *os.File) *bytes.Buffer {
@@ -44,7 +61,7 @@ func (r *Response) writeFileInfo(f *os.File) *bytes.Buffer {
 			"Content-Type:", GetContentType(filepath.Ext(fileInfo.Name())[1:]),
 		},
 	}
-	buf := bytes.NewBuffer(r.writeCommonHeaders().Bytes())
+	buf := r.writeCommonHeaders()
 	for _, line := range contentHeaders {
 		buf.WriteString(strings.Join(line, WordSeparator) + HttpSeparator)
 	}
@@ -53,7 +70,10 @@ func (r *Response) writeFileInfo(f *os.File) *bytes.Buffer {
 }
 
 func (r *Response) WriteCommonHeaders(conn net.Conn) {
-	conn.Write(r.writeCommonHeaders().Bytes())
+	buf := r.writeCommonHeaders()
+	conn.Write(buf.Bytes())
+	buf.Reset()
+	writerPool.Put(buf)
 }
 
 func (r *Response) writeCommonHeaders() *bytes.Buffer {
@@ -65,10 +85,10 @@ func (r *Response) writeCommonHeaders() *bytes.Buffer {
 		}, {
 			"Server:", ServerName,
 		}, {
-			"Connection: Close",
+			"Connection: Keep-Alive",
 		},
 	}
-	buf := bytes.NewBuffer(nil)
+	buf := writerPool.Get().(*bytes.Buffer)
 	for _, line := range commonHeaders {
 		buf.WriteString(strings.Join(line, WordSeparator) + HttpSeparator)
 	}

@@ -5,6 +5,8 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
+	"io"
 )
 
 const (
@@ -24,37 +26,58 @@ func NewServer(port, webRoot string) *Server {
 }
 
 func (s *Server) ListenAndServe() {
-	ln, err := net.Listen("tcp", ":" + s.Port)
+	ln, err := net.Listen("tcp", s.Port)
 	if err != nil {
 		log.Fatalln("server start error:", err)
 	}
+
 	log.Println("server started on port:", s.Port)
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
 			log.Fatalln("accept connection error:", err)
 		}
-		go s.serve(conn)
+		s.serve(conn)
 	}
+}
+
+var reqPool = sync.Pool{
+	New: func() interface{} {
+		return new(Request)
+	},
+}
+
+var respPool = sync.Pool{
+	New: func() interface{} {
+		return &Response{
+			Code:        StatusOk,
+			Description: "OK",
+		}
+	},
 }
 
 func (s *Server) serve(conn net.Conn) {
 	defer conn.Close()
-	req, resp := new(Request), &Response{
-		Code:        StatusOk,
-		Description: "OK",
-	}
+	req, resp := reqPool.Get().(*Request), respPool.Get().(*Response)
+	defer req.Reset()
+	defer reqPool.Put(req)
+	defer resp.Reset()
+	defer respPool.Put(resp)
 	err := req.Parse(conn)
 	if err != nil {
+		if err == io.EOF {
+			resp.WriteCommonHeaders(conn)
+			return
+		}
 		resp.BuildErrResp(err)
 		resp.WriteCommonHeaders(conn)
 		return
 	}
-	var isIndex = strings.HasSuffix(req.AbsPath, "/")
+	var isIndex = strings.HasSuffix(*req.AbsPath, "/")
 	if isIndex {
-		req.AbsPath += IndexPage
+		*req.AbsPath += IndexPage
 	}
-	f, err := os.Open(s.WebRoot + req.AbsPath)
+	f, err := os.Open(s.WebRoot + *req.AbsPath)
 	defer f.Close()
 	if err != nil {
 		if isIndex {
@@ -65,7 +88,7 @@ func (s *Server) serve(conn net.Conn) {
 		resp.WriteCommonHeaders(conn)
 		return
 	}
-	s.serveMethod(req.Method, resp, conn, f)
+	s.serveMethod(*req.Method, resp, conn, f)
 }
 
 func (s *Server) serveMethod(method string, resp *Response, conn net.Conn, f *os.File) {
