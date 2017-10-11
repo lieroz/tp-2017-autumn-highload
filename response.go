@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"io"
 	"sync"
+	"net/http"
 )
 
 const (
@@ -77,11 +78,12 @@ func (r *Response) WriteCommonHeaders(conn net.Conn) {
 }
 
 func (r *Response) writeCommonHeaders() *bytes.Buffer {
+	t := time.Now()
 	var commonHeaders = [][]string{
 		{
 			HttpVersion, strconv.FormatInt(int64(r.Code), Base), r.Description,
 		}, {
-			"Date:", time.Now().String(),
+			"Date:", t.Format(http.TimeFormat),
 		}, {
 			"Server:", ServerName,
 		}, {
