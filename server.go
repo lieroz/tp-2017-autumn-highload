@@ -30,14 +30,20 @@ func (s *Server) ListenAndServe() {
 	if err != nil {
 		log.Fatalln("server start error:", err)
 	}
-
+	dispatcher := NewDispatcher()
+	dispatcher.Run()
 	log.Println("server started on port:", s.Port)
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
 			log.Fatalln("accept connection error:", err)
 		}
-		s.serve(conn)
+		//go s.serve(conn)
+		job := Job{
+			conn:       conn,
+			workerFunc: s.serve,
+		}
+		JobQueue <- job
 	}
 }
 
