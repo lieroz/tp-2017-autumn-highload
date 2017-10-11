@@ -1,6 +1,6 @@
 package main
 
-import "github.com/pkg/errors"
+import "errors"
 
 var (
 	ErrBadRequest       = errors.New("Bad Request")
