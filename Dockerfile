@@ -8,4 +8,4 @@ RUN mkdir -p /var/www/html &&\
 
 RUN ls
 
-EXPOSE 8080
+EXPOSE 80
