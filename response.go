@@ -33,11 +33,6 @@ type Response struct {
 	Description string
 }
 
-func (r *Response) Reset() {
-	r.Code = StatusOk
-	r.Description = "OK"
-}
-
 func (r *Response) WriteBody(conn net.Conn, f *os.File) {
 	buf := r.writeFileInfo(f)
 	io.Copy(buf, f)
